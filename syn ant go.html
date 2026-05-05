@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WordMatch: Synonym or Antonym?</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f0f7ff; }
+        #video-container { position: relative; display: inline-block; }
+        #game-box { padding: 20px; background: white; border-radius: 15px; margin: 20px auto; width: 80%; }
+        .word-pair { font-size: 2em; font-weight: bold; color: #007bff; margin: 10px 0; }
+    </style>
+</head>
+<body>
+
+<h1>WordMatch: Synonym or Antonym?</h1>
+<div id="video-container">
+    <video id="webcam" width="640" height="480" autoplay playsinline></video>
+</div>
+<div id="game-box">
+    <p id="instruction">Are these words Synonyms or Antonyms?</p>
+    <div id="word-display" class="word-pair">Loading...</div>
+    <p>LEFT TILT = Synonym | RIGHT TILT = Antonym</p>
+</div>
+
+<script>
+    const video = document.getElementById('webcam');
+    const wordDisplay = document.getElementById('word-display');
+    
+    // Data structure updated for Synonyms/Antonyms
+    const questions = [
+        { w1: "Happy", w2: "Joyful", type: "synonym" },
+        { w1: "Big", w2: "Small", type: "antonym" },
+        { w1: "Silent", w2: "Quiet", type: "synonym" },
+        { w1: "Fast", w2: "Slow", type: "antonym" },
+        { w1: "Ancient", w2: "Old", type: "synonym" }
+    ];
+    
+    let currentIdx = 0;
+    let canAnswer = true;
+
+    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+    faceMesh.setOptions({refineLandmarks: true});
+    faceMesh.onResults(onResults);
+
+    function onResults(results) {
+        if (!canAnswer || !results.multiFaceLandmarks) return;
+        
+        for (const landmarks of results.multiFaceLandmarks) {
+            const left = landmarks[234];
+            const right = landmarks[454];
+            const deltaY = right.y - left.y;
+
+            if (deltaY > 0.05) { // Tilted Right
+                handleAnswer('antonym');
+            } else if (deltaY < -0.05) { // Tilted Left
+                handleAnswer('synonym');
+            }
+        }
+    }
+
+    function handleAnswer(guess) {
+        canAnswer = false;
+        const correct = questions[currentIdx].type;
+        
+        if (guess === correct) {
+            wordDisplay.innerText = "Correct!";
+        } else {
+            wordDisplay.innerText = "Wrong! It was an " + correct + ".";
+        }
+
+        setTimeout(() => { 
+            currentIdx = (currentIdx + 1) % questions.length; 
+            updateUI();
+            canAnswer = true;
+        }, 2000);
+    }
+
+    function updateUI() { 
+        wordDisplay.innerText = questions[currentIdx].w1 + " - " + questions[currentIdx].w2; 
+    }
+
+    new Camera(video, { onFrame: async () => { await faceMesh.send({image: video}); } }).start();
+    updateUI();
+</script>
+</body>
+</html>
