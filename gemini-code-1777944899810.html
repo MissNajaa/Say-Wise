@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SayWise: Idiom Master</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f0f7ff; }
+        #video-container { position: relative; display: inline-block; }
+        #output-canvas { display: none; }
+        #game-box { padding: 20px; background: white; border-radius: 15px; margin: 20px auto; width: 80%; }
+        .instruction { font-size: 1.5em; color: #333; }
+    </style>
+</head>
+<body>
+
+<h1>SayWise: Idiom Learner</h1>
+<div id="video-container">
+    <video id="webcam" width="640" height="480" autoplay playsinline></video>
+</div>
+<div id="game-box">
+    <p id="idiom-text">Loading camera...</p>
+    <p>LEFT = Teacher's Pet (Correct) | RIGHT = Class Clown (Wrong)</p>
+</div>
+
+<script>
+    const video = document.getElementById('webcam');
+    const idiomDisplay = document.getElementById('idiom-text');
+    const idioms = [
+        { text: "Teacher's pet", desc: "Correct! This means a student who is liked best by the teacher." },
+        { text: "Hold your horses", desc: "This means wait a moment or be patient." }
+    ];
+    let currentIdx = 0;
+
+    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+    faceMesh.setOptions({refineLandmarks: true});
+    faceMesh.onResults(onResults);
+
+    function onResults(results) {
+        if (results.multiFaceLandmarks) {
+            for (const landmarks of results.multiFaceLandmarks) {
+                // Point 234 (Left temple) and 454 (Right temple)
+                const left = landmarks[234];
+                const right = landmarks[454];
+                const deltaY = right.y - left.y;
+
+                if (deltaY > 0.05) handleAnswer('right'); // Tilted Right
+                else if (deltaY < -0.05) handleAnswer('left'); // Tilted Left
+            }
+        }
+    }
+
+    function handleAnswer(side) {
+        idiomDisplay.innerText = side === 'left' ? idioms[currentIdx].desc : "Try Again! Keep learning.";
+        setTimeout(() => { currentIdx = (currentIdx + 1) % idioms.length; updateIdiom(); }, 3000);
+    }
+
+    function updateIdiom() { idiomDisplay.innerText = "What is: " + idioms[currentIdx].text + "?"; }
+
+    new Camera(video, { onFrame: async () => { await faceMesh.send({image: video}); } }).start();
+    updateIdiom();
+</script>
+</body>
+</html>
